@@ -48,12 +48,20 @@ If `jq` is missing or hook stdin is empty, the guard exits 0 because it cannot s
 - OpenCode listens for `session.idle` in `.opencode/plugins/fm-primary-turnend-guard.js`, lets the watcher coordinator act first, and calls `client.session.promptAsync` once when the guard returns 2.
 - Pi listens for `agent_settled` in `.pi/extensions/fm-primary-turnend-guard.ts`, runs once per logical agent run, and calls `pi.sendUserMessage(..., { deliverAs: "followUp" })` once when the guard returns 2.
 - Grok registers a `Stop` hook in `.grok/hooks/fm-primary-turnend-guard.json` and delegates capability selection to `bin/fm-turnend-guard-grok.sh`.
-  The tracked Claude Stop entries are inert when `GROK_AGENT` or `GROK_HOOK_EVENT` is present, so Grok's Claude-compatible settings loading cannot create a second continuation path.
-  Both markers are required because Grok does not inject the same variables into every process kind: grok 0.2.73 set `GROK_AGENT` for child and tool processes, while grok 1.0.0 hook processes carry `GROK_HOOK_EVENT`, `GROK_HOOK_NAME`, `GROK_SESSION_ID`, and `GROK_WORKSPACE_ROOT` but no `GROK_AGENT`.
+  Each guarded tracked entry tests two conditions and runs only when both hold: `CLAUDECODE` must be present, and neither `GROK_AGENT` nor `GROK_HOOK_EVENT` may be.
+  The positive condition keeps a Claude-only entry inert in any non-Claude process that loads Claude-compatible settings, so a harness that firstmate has not yet enumerated a negative marker for cannot pick these entries up by default.
+  The negative condition still decides the outcome when both are present, so Grok's Claude-compatible settings loading cannot create a second continuation path even where a Claude marker is also in scope.
+  Both Grok markers are required because Grok does not inject the same variables into every process kind: grok 0.2.73 set `GROK_AGENT` for child and tool processes, while grok 1.0.0 hook processes carry `GROK_HOOK_EVENT`, `GROK_HOOK_NAME`, `GROK_SESSION_ID`, and `GROK_WORKSPACE_ROOT` but no `GROK_AGENT`.
   A guard keyed on `GROK_AGENT` alone therefore stopped firing on grok 1.0.0, and the resulting Claude-only auto-arm ran synchronously under Grok - Grok has no `asyncRewake`, so it waited on the foregrounded watcher for the declared 28800-second timeout and the Grok turn never ended.
   Do NOT widen this guard to `GROK_SESSION_ID`: Grok injects that into every child process, so it can survive into a Claude session that Grok launched and would silently disable Claude's own continuity.
   The same marker guard carries every tracked `.claude/settings.json` entry whose event Grok already covers through its own `.grok/hooks/` registration, which is both `Stop` entries, the `SessionStart` entry, and the two `PreToolUse` Bash entries; `bin/fm-subagent-pretool-check.sh` is the one deliberate unguarded exception because no Grok registration covers the subagent-spawn event, recorded in [`subagent-guard.md`](subagent-guard.md) "Known residual gap".
-  `tests/fm-turnend-guard.test.sh` pins that inventory so neither the guarded set nor the exception can change silently.
+  `tests/fm-turnend-guard.test.sh` pins that inventory and both guard directions, so neither the guarded set, the exception, nor either condition can change silently.
+
+  The positive condition is only safe because `CLAUDECODE` reaches every hook kind these entries register for; a kind that did not carry it would exit 0 and silently disarm Claude's own protection instead of Grok's.
+  That was measured per kind rather than assumed, on Claude Code 2.1.220: `SessionStart` carries it for all four sources (`startup`, `resume`, `clear`, `compact`), `PreToolUse` carries it under both the `Bash` and `.*` matchers, and `Stop` carries it.
+  Re-measure per kind before relying on this on a newer Claude Code, because the failure mode is silent; the dated evidence and the command that reproduces it are in [`verification/supervision.md`](verification/supervision.md).
+  The condition tests only that `CLAUDECODE` is non-empty, deliberately unlike `bin/fm-harness.sh`, which compares it to `1` because there a wrong value should fall through to the ancestry walk rather than assert an identity.
+  Here a wrong value would disarm Claude's own protection, so a future build that changed `1` to some other non-empty value must keep these entries armed rather than silently skip them.
 
 Claude and Codex can block a Stop directly with exit status 2 and stderr.
 Both payloads carry `stop_hook_active`.

@@ -209,6 +209,32 @@ The same run proved the Claude-compatible Stop entries stay inert under `GROK_AG
 That inertness result is scoped to the builds it exercised: it did not establish that `GROK_AGENT` reaches a Grok HOOK process, and on grok 1.0.0 it does not, so the marker set was widened to `GROK_HOOK_EVENT` as well (docs/turnend-guard.md "Harness integrations").
 `tests/fm-turnend-guard.test.sh` now pins every tracked `.claude/settings.json` hook entry against a real grok 1.0.0 hook environment so the inertness contract is covered deterministically rather than only by the opt-in live matrix.
 
+### Claude hook-marker coverage
+
+The tracked entries also require `CLAUDECODE` positively, so the marker has to reach every hook kind they register for; a kind that did not carry it would exit 0 and silently disarm Claude's own protection.
+That was established per kind on Claude Code 2.1.220 (macOS 25.5.0) on 2026-08-07, by recording each hook process's own environment from two independent sources - the shell view the guard expression evaluates in, and the kernel's copy via `ps -Eww -p $$` - in a throwaway lab that touched no real home or Claude configuration.
+The measurement is confound-controlled: every `CLAUDE*` variable was stripped before the probe session launched and the launcher's own environment was recorded to prove it, so an observed marker was set by the probe's Claude Code rather than inherited from the surrounding session.
+
+| Hook kind | Measured | Sources covered |
+| --- | --- | --- |
+| `SessionStart` | present | `startup`, `resume`, `clear`, `compact` |
+| `PreToolUse` | present | `Bash` matcher and `.*` matcher; `Bash` and `Read` tools |
+| `Stop` | present | turn end, `stop_hook_active` false |
+
+Twenty hook invocations were recorded across the headless `-p` path and a real interactive TTY session, and every one carried `CLAUDECODE=1` in both views, with no disagreement between them.
+
+```text
+ok - claude 2.1.220 (Claude Code): CLAUDECODE reached all 4 recorded hook invocations across SessionStart, both PreToolUse matchers, and Stop, in both the shell and kernel views
+```
+
+Refresh it after every Claude Code upgrade with the command that reproduces it, which fails naming the harness and version, refuses to pass having checked nothing, and reports a kind that never fired as unmeasured rather than passing:
+
+```bash
+FM_CLAUDE_HOOK_MARKER_LIVE_E2E=1 tests/fm-claude-hook-marker-live-e2e.test.sh
+```
+
+The guard logic itself needs no harness and is pinned portably by `tests/fm-turnend-guard.test.sh`, which asserts both directions on every tracked entry: each guarded entry stays inert with no `CLAUDECODE`, stays inert under either Grok marker, stays inert when a Grok marker and `CLAUDECODE` are present together, and still runs under a native Claude environment.
+
 The secondmate-home scope and manual-repair wake path were measured with Claude Code 2.1.207 on 2026-07-12, when a native background completion re-invoked the idle model with no human input.
 The current Stop-owned main/secondmate inclusion and child-worktree exclusion are covered deterministically by `tests/fm-claude-stop-autoarm.test.sh`.
 Session-lock ownership in `bin/fm-session-lock-lib.sh` is decided against a session's whole contiguous harness ancestry rather than one chosen pid, so the Stop auto-arm reaches its lock owner wherever that owner sits: the outermost pid of Claude Code's multi-level `bg-spare` hook worker chain, or an inner pid when a harness-named daemon parents the session.

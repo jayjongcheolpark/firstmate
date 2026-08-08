@@ -789,14 +789,27 @@ test_grok_adapter_missing_jq_and_no_supervision_allow() {
 # Claude-only Stop auto-arm ran synchronously under Grok, foregrounded the
 # watcher, and wedged the Grok turn for its declared 28800-second timeout.
 #
+# Each guarded entry now carries BOTH directions, and both are pinned here:
+#   positive - it runs only where CLAUDECODE is present, so a Claude-only entry
+#              stays inert in any non-Claude process that loads Claude-compatible
+#              settings, without firstmate having to enumerate a new negative
+#              marker per harness.
+#   negative - it stays inert wherever a Grok marker is present, which still
+#              dominates even when CLAUDECODE is also set, so adding the positive
+#              requirement did not weaken the Grok exclusion.
+# The positive direction is only safe because CLAUDECODE was measured present in
+# a real hook process of EVERY registered kind - SessionStart, PreToolUse, and
+# Stop (docs/turnend-guard.md "Harness integrations"). A kind that did not carry
+# it would exit 0 here and silently disarm Claude's own protection.
+#
 # bin/fm-subagent-pretool-check.sh is the deliberate exception: Grok has no
 # counterpart registration, so guarding it would REMOVE the guard from Grok
 # rather than deduplicate it (docs/subagent-guard.md "Known residual gap").
 # It is asserted to stay unguarded so the exception cannot be closed silently.
-test_tracked_claude_entries_inert_under_grok() {
+test_tracked_claude_entries_marker_contract() {
   local dir cmd script target guarded=0 unguarded=0
   command -v jq >/dev/null 2>&1 || fail "test host must provide jq"
-  dir="$TMP_ROOT/claude-entries-grok-inert"
+  dir="$TMP_ROOT/claude-entries-marker-contract"
   mkdir -p "$dir/bin"
   for script in fm-turnend-guard.sh fm-claude-stop-autoarm.sh fm-sessionstart-run.sh \
     fm-arm-pretool-check.sh fm-cd-pretool-check.sh fm-subagent-pretool-check.sh; do
@@ -805,6 +818,8 @@ test_tracked_claude_entries_inert_under_grok() {
   done
 
   # Runs one tracked command string and reports whether it reached its script.
+  # Every marker this contract reads is set or unset explicitly by the caller, so
+  # the verdict never depends on the environment the test suite itself runs in.
   ran_under() {
     rm -f "$dir/invoked"
     env "$@" CLAUDE_PROJECT_DIR="$dir" bash -c "$cmd" </dev/null >/dev/null 2>&1
@@ -818,31 +833,43 @@ test_tracked_claude_entries_inert_under_grok() {
 
     # Native Claude: EVERY tracked entry must still reach its script, or a guard
     # has silently disarmed Claude's own protection.
-    ran_under -u GROK_AGENT -u GROK_HOOK_EVENT -u GROK_HOOK_NAME -u GROK_SESSION_ID \
-      -u GROK_WORKSPACE_ROOT \
+    ran_under -u GROK_AGENT -u GROK_HOOK_EVENT -u GROK_HOOK_NAME \
+      -u GROK_SESSION_ID -u GROK_WORKSPACE_ROOT CLAUDECODE=1 \
       || fail "tracked entry for $target did not run under a native Claude environment"
 
     if [ "$target" = fm-subagent-pretool-check.sh ]; then
       unguarded=$((unguarded + 1))
-      ran_under -u GROK_AGENT GROK_HOOK_EVENT=pre_tool_use GROK_SESSION_ID=grok-test-session \
+      ran_under -u CLAUDECODE -u GROK_AGENT GROK_HOOK_EVENT=pre_tool_use \
+        GROK_SESSION_ID=grok-test-session \
         || fail "the documented $target exception must stay unguarded; Grok has no counterpart to fall back to"
       continue
     fi
 
     guarded=$((guarded + 1))
+    # Positive requirement: no Claude marker means no Claude-only entry, even
+    # when no harness marker identifies who is running instead.
+    ! ran_under -u CLAUDECODE -u GROK_AGENT -u GROK_HOOK_EVENT -u GROK_HOOK_NAME \
+      -u GROK_SESSION_ID -u GROK_WORKSPACE_ROOT \
+      || fail "tracked entry for $target ran with no CLAUDECODE marker present"
     # grok 1.0.0 hook process: hook markers present, GROK_AGENT absent.
-    ! ran_under -u GROK_AGENT GROK_HOOK_EVENT=stop \
+    ! ran_under -u CLAUDECODE -u GROK_AGENT GROK_HOOK_EVENT=stop \
       GROK_HOOK_NAME='project/settings:stop[0].hooks[0]' \
       GROK_SESSION_ID=grok-test-session GROK_WORKSPACE_ROOT="$dir" \
       || fail "tracked entry for $target ran under a grok 1.0.0 hook environment"
     # grok 0.2.73 child/tool process: GROK_AGENT present, hook markers absent.
-    ! ran_under -u GROK_HOOK_EVENT -u GROK_HOOK_NAME GROK_AGENT=1 \
+    ! ran_under -u CLAUDECODE -u GROK_HOOK_EVENT -u GROK_HOOK_NAME GROK_AGENT=1 \
       || fail "tracked entry for $target ran under a legacy GROK_AGENT environment"
+    # Both markers at once: the Grok exclusion must still win, so the positive
+    # requirement cannot be used to re-arm an entry inside a Grok process.
+    ! ran_under -u GROK_AGENT CLAUDECODE=1 GROK_HOOK_EVENT=stop \
+      || fail "tracked entry for $target ran under a grok hook that also carried CLAUDECODE"
+    ! ran_under -u GROK_HOOK_EVENT CLAUDECODE=1 GROK_AGENT=1 \
+      || fail "tracked entry for $target ran under a grok process that also carried CLAUDECODE"
   done < <(jq -r '.hooks[][].hooks[].command' "$ROOT/.claude/settings.json")
 
-  [ "$guarded" -eq 5 ] || fail "expected 5 grok-guarded tracked entries, saw $guarded"
+  [ "$guarded" -eq 5 ] || fail "expected 5 marker-guarded tracked entries, saw $guarded"
   [ "$unguarded" -eq 1 ] || fail "expected 1 documented unguarded tracked entry, saw $unguarded"
-  pass "tracked .claude/settings.json entries: $guarded inert under grok, the documented subagent exception still armed, all live under Claude"
+  pass "tracked .claude/settings.json entries: $guarded require CLAUDECODE and stay inert under grok, the documented subagent exception still armed, all live under Claude"
 }
 
 test_codex_hook_uses_process_pwd_when_payload_cwd_is_outside_root() {
@@ -1638,7 +1665,7 @@ test_grok_adapter_native_true_allows_without_resume
 test_grok_adapter_snake_case_native_and_camel_precedence
 test_grok_adapter_invalid_inputs_start_neither_path
 test_grok_adapter_missing_jq_and_no_supervision_allow
-test_tracked_claude_entries_inert_under_grok
+test_tracked_claude_entries_marker_contract
 test_codex_hook_uses_process_pwd_when_payload_cwd_is_outside_root
 test_codex_hook_ignores_nested_git_root_guard
 test_opencode_plugin_anchors_guard_to_worktree

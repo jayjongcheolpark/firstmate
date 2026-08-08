@@ -367,6 +367,7 @@ tests/fm-subagent-pretool-check.test.sh
 
 The other tracked Claude hook entries in `.claude/settings.json` refuse to run under Grok's Claude-compatible settings loading (docs/turnend-guard.md "Harness integrations"), because Grok already covers each of those events through its own `.grok/hooks/` registration and running both creates a duplicate path.
 This entry is the deliberate exception and stays unguarded: Grok is "inspected but not wired" above, so no `.grok/hooks/` registration covers the subagent-spawn event at all, and guarding it would remove the guard from Grok entirely rather than deduplicate it.
+That covers both halves of the marker guard, including the positive `CLAUDECODE` requirement the other entries carry: requiring a Claude marker here would make this entry inert under Grok just as surely as excluding a Grok one, which is the outcome the exception exists to prevent.
 The coverage it leaves is partial rather than correct - the tracked entry passes `--claude`, which suppresses exactly the stdout decision object Grok consumes - so treat this as incidental reach, not as Grok being wired.
 Wiring Grok properly still requires the matcher-token verification described above, and that is what closes this exception.
 
