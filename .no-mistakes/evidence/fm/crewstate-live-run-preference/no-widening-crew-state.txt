@@ -1,0 +1,14 @@
+Criterion 4 - no behavior change for the single-run case and for the
+terminal-only case. Same real fm-crew-state.sh CLI, base vs target code.
+
+BEFORE the fix (base f170ced)
+single-live            one RUNNING run bound to the worktree          -> state: working · source: run-step · validating (running)
+single-failed          one FAILED run bound to the worktree           -> state: failed · source: run-step · run failed
+terminal-only-two      two terminal runs, none live                   -> state: failed · source: run-step · run failed
+terminal-only-listing  terminal-only via the runs listing path        -> state: failed · source: run-step · run cancelled
+
+AFTER the fix (target bf0497e)
+single-live            one RUNNING run bound to the worktree          -> state: working · source: run-step · validating (running)
+single-failed          one FAILED run bound to the worktree           -> state: failed · source: run-step · run failed
+terminal-only-two      two terminal runs, none live                   -> state: failed · source: run-step · run failed
+terminal-only-listing  terminal-only via the runs listing path        -> state: failed · source: run-step · run cancelled

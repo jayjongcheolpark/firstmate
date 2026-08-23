@@ -1,0 +1,16 @@
+Conservatism check: an unclassifiable listing status word must keep the
+caller's existing precedence, not be displaced or dropped.
+
+BEFORE (f170ced)
+  listing:   parked     fm/feat 5a7a5ef  2026-08-05 11:20
+  -> state: unknown · source: run-step · runs list status: parked
+AFTER  (bf0497e)
+  listing:   parked     fm/feat 4bf0589  2026-08-05 11:20
+  -> state: unknown · source: run-step · runs list status: parked
+
+BEFORE (f170ced)
+  listing:   parked     fm/feat 4bf0589  2026-08-05 11:20|  failed     fm/feat 4bf0589  2026-08-05 10:05
+  -> state: unknown · source: run-step · runs list status: parked
+AFTER  (bf0497e)
+  listing:   parked     fm/feat 4bf0589  2026-08-05 11:20|  failed     fm/feat 4bf0589  2026-08-05 10:05
+  -> state: unknown · source: run-step · runs list status: parked

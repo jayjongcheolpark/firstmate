@@ -1,0 +1,55 @@
+Manual E2E repro of the proven fleet case (corr=80da9102d57fd30d).
+Real bin/fm-crew-state.sh + bin/fm-fleet-snapshot.sh driven against a fake
+no-mistakes CLI: one FAILED run at the task worktree's exact commit (crashed
+validation daemon) plus one RUNNING run at a descendant commit on the branch.
+
+==============================================================
+ BEFORE the fix (base f170ced) - healthy task misreported as failed
+==============================================================
+task worktree HEAD            : 3870c717  (the dead run's commit)
+live run head (descendant)    : 7c1c9298
+
+$ no-mistakes runs --limit 20
+  failed     fm/crewstate-live-run-preference 3870c71  2026-08-05 11:20
+  running    fm/crewstate-live-run-preference 7c1c929  2026-08-05 10:05
+
+$ no-mistakes axi status        # answers with the most-recently-touched run
+run:
+  id: run_dead
+  branch: fm/crewstate-live-run-preference
+  status: failed
+  outcome: failed
+  head: 3870c71765bc175f4d2a91960592f94fe5668a92
+  step: failed
+
+$ fm-crew-state.sh shipper      <-- what the fleet reports for this task
+state: failed · source: run-step · run failed
+
+$ fm-fleet-snapshot.sh --json | jq (task current_state) <-- the fleet dashboard/product surface
+{"id":"shipper","current_state":{"state":"failed","source":"run-step","detail":"run failed","raw":"state: failed · source: run-step · run failed","observed_at":"2026-08-23T17:22:39Z","freshness":"fresh"}}
+
+==============================================================
+ AFTER the fix (target bf0497e) - the live run wins
+==============================================================
+task worktree HEAD            : 9b4f27e7  (the dead run's commit)
+live run head (descendant)    : 4e3e1a07
+
+$ no-mistakes runs --limit 20
+  failed     fm/crewstate-live-run-preference 9b4f27e  2026-08-05 11:20
+  running    fm/crewstate-live-run-preference 4e3e1a0  2026-08-05 10:05
+
+$ no-mistakes axi status        # answers with the most-recently-touched run
+run:
+  id: run_dead
+  branch: fm/crewstate-live-run-preference
+  status: failed
+  outcome: failed
+  head: 9b4f27e7a62dca9407373eb3dab92eba31fe33d8
+  step: failed
+
+$ fm-crew-state.sh shipper      <-- what the fleet reports for this task
+state: working · source: run-step · validating (background run)
+
+$ fm-fleet-snapshot.sh --json | jq (task current_state) <-- the fleet dashboard/product surface
+{"id":"shipper","current_state":{"state":"working","source":"run-step","detail":"validating (background run)","raw":"state: working · source: run-step · validating (background run)","observed_at":"2026-08-23T17:22:40Z","freshness":"fresh"}}
+
