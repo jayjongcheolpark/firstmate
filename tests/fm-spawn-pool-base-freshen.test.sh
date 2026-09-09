@@ -183,6 +183,9 @@ test_stale_pool_base_refreshes_before_branching() {
       "$branch_head" "$current" "$(cat "$POOL_DIR/advanced-main.txt")"
   fi
 
+  # Only teardown releases a slot; retire the first task's record before a new
+  # task may enter the same pooled worktree.
+  rm "$HOME_DIR/state/$id.meta"
   id='pool-current-base-repeat-r1'
   fm_test_spawn_brief "$HOME_DIR" "$id"
   out=$(run_spawn "$id" --mode no-mistakes --yolo off)
@@ -528,6 +531,7 @@ strand_submodule_pin_via_spawn() {  # <seed-id>
     || fail "the first spawn did not move the pooled base across the moved submodule pin"
   [ "$(git -C "$POOL_DIR/ui" rev-parse HEAD)" = "$SUBPIN1" ] \
     || fail "the first spawn did not strand the submodule on the pin the old base recorded"
+  rm "$HOME_DIR/state/$id.meta"
 }
 
 test_stale_submodule_pin_explains_itself() {
@@ -722,6 +726,33 @@ test_claimed_pool_refuses_before_allocation() {
   pass "a dead endpoint's durable claim refuses before pool allocation"
 }
 
+test_claim_entered_after_preflight_refuses_before_publication() {
+  local rec id out status before
+  id='pool-late-claim-r14'
+  rec=$(make_case late-claim "$id")
+  read_case_record "$rec"
+  # At preflight Treehouse still sees task held's shell in slot 3, so it is not
+  # offered; the shell then exits and treehouse get enters that very slot.
+  mkdir -p "$POOL_DIR/out"
+  printf 'held render\n' > "$POOL_DIR/out/Explainer.mp4"
+  printf 'kind=ship\nbackend=tmux\nwindow=closing-window\nworktree=%s\n' "$POOL_DIR" \
+    > "$HOME_DIR/state/held.meta"
+  fake_treehouse_status "$FAKEBIN_DIR" \
+    "[{\"name\":\"3\",\"path\":\"$POOL_DIR\",\"status\":\"in-use\"}]"
+  before=$(cat "$HOME_DIR/state/held.meta")
+  out=$(FM_FAKE_LAUNCH_LOG="$CASE_DIR/launch.log" run_spawn "$id" --scout)
+  status=$?
+  [ "$status" -ne 0 ] || fail "spawn bound a second owner to a slot entered after its claimant died"
+  assert_contains "$out" "task held's recorded worktree" "late refusal must name the claiming task"
+  assert_contains "$out" 'fm-crew-state.sh held' "late refusal must name reconciliation"
+  [ ! -f "$HOME_DIR/state/$id.meta" ] || fail "spawn published a second owner"
+  [ "$before" = "$(cat "$HOME_DIR/state/held.meta")" ] || fail "spawn changed the owner record"
+  [ "$(git -C "$POOL_DIR" rev-parse HEAD)" = "$INITIAL_SHA" ] || fail "spawn reset the held copy"
+  assert_absent "$CASE_DIR/launch.log" "spawn sent a launch command despite the refusal"
+  assert_grep 'held render' "$POOL_DIR/out/Explainer.mp4" "spawn destroyed the held artifact"
+  pass "a slot claimed by a task whose endpoint died after preflight is refused before publication"
+}
+
 test_live_claim_on_another_slot_does_not_block_allocation() {
   local rec id out status before live_slot
   id='pool-other-slot-live-r14'
@@ -748,6 +779,7 @@ test_live_claim_on_another_slot_does_not_block_allocation() {
 }
 
 test_claimed_pool_refuses_before_allocation
+test_claim_entered_after_preflight_refuses_before_publication
 test_live_claim_on_another_slot_does_not_block_allocation
 test_remote_seeded_home_spawns_from_treehouse_pool
 test_linked_spawning_home_rejects_primary_before_refresh
