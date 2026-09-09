@@ -1,0 +1,35 @@
+=== proven 2026-08 case (descendant live head) ===
+worktree HEAD: fe8498d
+$ no-mistakes axi status      -> run.status=completed outcome=failed head=<worktree HEAD>
+$ no-mistakes runs --limit 200
+  failed     fm/crewstate-live-run-preference fe8498d  2026-08-05 11:20
+  running    fm/crewstate-live-run-preference c09d485  2026-08-05 10:05
+$ bin/fm-crew-state.sh demo
+state: failed · source: run-step · run failed
+
+=== routine unfetched-head case (unfetched live head) ===
+worktree HEAD: fe8498d
+$ no-mistakes axi status      -> run.status=completed outcome=failed head=<worktree HEAD>
+$ no-mistakes runs --limit 200
+  failed     fm/crewstate-live-run-preference fe8498d  2026-08-05 11:20
+  running    fm/crewstate-live-run-preference 0123abc  2026-08-05 10:05
+$ bin/fm-crew-state.sh demo
+state: failed · source: run-step · run failed
+
+=== six new regression tests against /tmp/fm-livepref.JXlA/base/bin/fm-crew-state.sh ===
+not ok - the live run outranks the terminal corpse bound to the same worktree (missing: 'state: working')
+--- output ---
+state: failed · source: run-step · run failed
+FAIL: test_terminal_corpse_loses_to_live_run_on_same_branch
+not ok - an older live row outranks the branch's newest terminal row (missing: 'state: working')
+--- output ---
+state: failed · source: run-step · run failed
+FAIL: test_runs_list_live_row_outranks_newer_terminal_row
+not ok - an unfetched live row anchored by the exact-head terminal row outranks it (missing: 'state: working')
+--- output ---
+state: failed · source: run-step · run failed
+FAIL: test_unfetched_live_sibling_outranks_terminal_row_at_exact_head
+ok - two terminal rows keep the existing newest-first precedence
+ok - an unclassifiable status row keeps the ledger's newest-first precedence
+ok - a terminal run with no live sibling is unchanged
+new-test failures: 3

@@ -1,0 +1,26 @@
+=== proven 2026-08 case (descendant live head) ===
+worktree HEAD: 9b9cd47
+$ no-mistakes axi status      -> run.status=completed outcome=failed head=<worktree HEAD>
+$ no-mistakes runs --limit 200
+  failed     fm/crewstate-live-run-preference 9b9cd47  2026-08-05 11:20
+  running    fm/crewstate-live-run-preference 6646b6e  2026-08-05 10:05
+$ bin/fm-crew-state.sh demo
+state: working · source: run-step · validating (background run)
+
+=== routine unfetched-head case (unfetched live head) ===
+worktree HEAD: 9b9cd47
+$ no-mistakes axi status      -> run.status=completed outcome=failed head=<worktree HEAD>
+$ no-mistakes runs --limit 200
+  failed     fm/crewstate-live-run-preference 9b9cd47  2026-08-05 11:20
+  running    fm/crewstate-live-run-preference 0123abc  2026-08-05 10:05
+$ bin/fm-crew-state.sh demo
+state: working · source: run-step · validating (background run)
+
+=== six new regression tests against /Users/jaypark/.no-mistakes/worktrees/22794bb0df3c/01M23VZT31J6WAHMQWBZFZ2ZW2/bin/fm-crew-state.sh ===
+ok - a live run outranks a terminal run bound to the same worktree
+ok - runs-list selection prefers a live row over a newer terminal one
+ok - an unfetched live sibling outranks a terminal row at the worktree's exact commit
+ok - two terminal rows keep the existing newest-first precedence
+ok - an unclassifiable status row keeps the ledger's newest-first precedence
+ok - a terminal run with no live sibling is unchanged
+new-test failures: 0
