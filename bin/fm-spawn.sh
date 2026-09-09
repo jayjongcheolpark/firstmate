@@ -3139,7 +3139,7 @@ elif [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
   fi
 
   validate_spawn_worktree "treehouse get" "$T"
-  refuse_claimed_spawn_slot "$WT" "entered slot" "and its endpoint died between the preflight and treehouse get"
+  refuse_claimed_spawn_slot "$WT" "entered slot" "and its endpoint died between the preflight and treehouse get; the launch shell was left in that slot, inspect window $T"
 fi
 if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ]; then
   freshen_spawn_worktree_base "$WT" || exit 1

@@ -715,6 +715,8 @@ test_claimed_pool_refuses_before_allocation() {
   out=$(FM_FAKE_LAUNCH_LOG="$CASE_DIR/launch.log" run_spawn "$id" --scout)
   status=$?
   [ "$status" -ne 0 ] || fail "spawn reused a dead endpoint's recorded pool slot"
+  assert_contains "$out" "available slot" "refusal must come from the preflight over Treehouse's offered slots"
+  assert_not_contains "$out" "entered slot" "refusal must not wait for treehouse get to enter the slot"
   assert_contains "$out" "task held's recorded worktree" "refusal must name the claiming task"
   assert_contains "$out" 'fm-crew-state.sh held' "refusal must name reconciliation"
   assert_contains "$out" 'teardown' "refusal must explain slot release"
@@ -743,6 +745,9 @@ test_claim_entered_after_preflight_refuses_before_publication() {
   out=$(FM_FAKE_LAUNCH_LOG="$CASE_DIR/launch.log" run_spawn "$id" --scout)
   status=$?
   [ "$status" -ne 0 ] || fail "spawn bound a second owner to a slot entered after its claimant died"
+  assert_contains "$out" "entered slot" "late refusal must come from the recheck of the slot treehouse get entered"
+  assert_not_contains "$out" "available slot" "preflight must not refuse a slot Treehouse reported in use"
+  assert_contains "$out" "inspect window" "late refusal must name the window whose shell sits in the slot"
   assert_contains "$out" "task held's recorded worktree" "late refusal must name the claiming task"
   assert_contains "$out" 'fm-crew-state.sh held' "late refusal must name reconciliation"
   [ ! -f "$HOME_DIR/state/$id.meta" ] || fail "spawn published a second owner"
