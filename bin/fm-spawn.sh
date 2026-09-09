@@ -117,12 +117,15 @@
 #   is published. The local root is whatever bin/fm-wake-lib.sh's
 #   fm_firstmate_root_home resolves, so a home seeded from another machine anchors
 #   that lock itself rather than failing to resolve one;
-#   contention refuses rather than waits. Before invoking Treehouse, fresh spawns
-#   refuse if any registered project worktree is claimed by this home's task
-#   metadata, even when the endpoint is dead or Treehouse calls it available.
-#   Treehouse get has no slot exclusion selector, so refusal is conservative:
-#   another slot being free does not make allocation safe. Only teardown releases
-#   claims; relaunch reuses its own slot without this allocation preflight.
+#   contention refuses rather than waits. Under that lock, before `treehouse get`,
+#   a fresh spawn reads `treehouse status --json` and refuses when any slot
+#   Treehouse reports available is still recorded as worktree= by another task
+#   meta in this home: Treehouse judges availability by live processes, so a task
+#   whose endpoint died still owns its slot here. Slots Treehouse reports in use or
+#   leased are never handed out, so other live pooled tasks do not block a spawn.
+#   `treehouse get` has no slot selector, so a claimed available slot refuses
+#   loudly, naming the claiming task, rather than taking another slot. Only
+#   teardown releases claims; relaunch reuses its own slot without this preflight.
 #   With no harness arg, a crewmate/scout spawn resolves the CREW harness only when
 #   config/crew-dispatch.json is absent. When that file exists, crewmate/scout
 #   spawns require an explicit harness so firstmate cannot silently skip dispatch
@@ -2196,25 +2199,24 @@ if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ];
   fi
   SPAWN_TREEHOUSE_PROJECT_LOCK_HELD=1
   # Inspect before get: allocation itself can reset the selected copy.
-  if ! (
-    set -o pipefail
-    git -C "$PROJ_ABS" worktree list --porcelain -z |
-      while IFS= read -r -d '' spawn_worktree_line; do
-        case "$spawn_worktree_line" in
-          'worktree '*)
-            spawn_registered_worktree=${spawn_worktree_line#worktree }
-            if fm_meta_find_directory_claim "$STATE/$ID.meta" "$spawn_registered_worktree" worktree "$STATE"; then
-              echo "error: Treehouse allocation refused: $spawn_registered_worktree is still task $FM_META_CLAIM_ID's recorded worktree, regardless of endpoint or pool availability." >&2
-              echo "Reconcile with bin/fm-crew-state.sh $FM_META_CLAIM_ID, then bin/fm-teardown.sh $FM_META_CLAIM_ID when its work is landed; only teardown releases the slot." >&2
-              exit 1
-            fi
-            ;;
-        esac
-      done
-  ); then
-    echo "error: registered worktree preflight failed for $PROJ_ABS; refusing Treehouse allocation" >&2
+  if ! SPAWN_POOL_STATUS=$(cd "$PROJ_ABS" && treehouse status --json 2>/dev/null); then
+    echo "error: treehouse status failed for $PROJ_ABS; refusing Treehouse allocation" >&2
     exit 1
   fi
+  if ! SPAWN_POOL_AVAILABLE=$(printf '%s' "$SPAWN_POOL_STATUS" \
+      | jq -r '.[] | select(.status == "available") | .path' 2>/dev/null); then
+    echo "error: treehouse status for $PROJ_ABS was not pool JSON; refusing Treehouse allocation" >&2
+    exit 1
+  fi
+  while IFS= read -r spawn_available_slot; do
+    [ -n "$spawn_available_slot" ] || continue
+    fm_meta_find_directory_claim "$STATE/$ID.meta" "$spawn_available_slot" worktree "$STATE" || continue
+    echo "error: Treehouse allocation refused: available slot $spawn_available_slot is still task $FM_META_CLAIM_ID's recorded worktree, so treehouse get could hand it out again." >&2
+    echo "Reconcile with bin/fm-crew-state.sh $FM_META_CLAIM_ID, then bin/fm-teardown.sh $FM_META_CLAIM_ID when its work is landed; only teardown releases the slot." >&2
+    exit 1
+  done <<EOF
+$SPAWN_POOL_AVAILABLE
+EOF
 fi
 [ -f "$BRIEF" ] || { echo "error: task $ID has no brief at inaccessible data path $BRIEF" >&2; exit 1; }
 if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then

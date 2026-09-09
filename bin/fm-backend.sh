@@ -300,9 +300,10 @@ fm_backend_validate_spawn() {  # <name>
 # single owner of the per-backend dependency delta, so bootstrap follows the
 # RESOLVED backend instead of demanding an inactive backend's tools. Each set is:
 #   - the session-provider CLI itself (tmux/herdr/zellij/orca/cmux);
-#   - jq, for the JSON-emitting experimental adapters (herdr, zellij, cmux) whose
-#     spawn/liveness paths parse the backend's JSON output (see each adapter's
-#     tool check, e.g. fm_backend_herdr_tool_check);
+#   - jq, for every treehouse-backed backend: fm-spawn.sh parses
+#     `treehouse status --json` before allocating a slot, and the JSON-emitting
+#     experimental adapters (herdr, zellij, cmux) also parse their backend's
+#     output (see each adapter's tool check, e.g. fm_backend_herdr_tool_check);
 #   - the treehouse worktree provider for every session-provider-only backend
 #     (tmux, herdr, zellij, cmux); orca owns its own task worktree and terminal,
 #     so it drops both treehouse and any other backend's session CLI.
@@ -310,7 +311,7 @@ fm_backend_validate_spawn() {  # <name>
 # 1 and prints nothing for an unknown backend.
 fm_backend_required_tools() {  # <backend>
   case "$1" in
-    tmux)   printf '%s' 'tmux treehouse' ;;
+    tmux)   printf '%s' 'tmux jq treehouse' ;;
     herdr)  printf '%s' 'herdr jq treehouse' ;;
     zellij) printf '%s' 'zellij jq treehouse' ;;
     cmux)   printf '%s' 'cmux jq treehouse' ;;
@@ -362,7 +363,9 @@ fm_meta_find_directory_claim() {  # <excluded-meta> <directory> <fields> <state>
         [ -n "$path" ] || continue
         canonical=$(cd "$path" 2>/dev/null && pwd -P) || continue
         [ "$canonical" = "$directory" ] || continue
+        # shellcheck disable=SC2034 # Output globals are consumed by sourcing callers.
         FM_META_CLAIM_ID=$(basename "$other" .meta)
+        # shellcheck disable=SC2034 # Output globals are consumed by sourcing callers.
         FM_META_CLAIM_FIELD=$field
         return 0
       done
