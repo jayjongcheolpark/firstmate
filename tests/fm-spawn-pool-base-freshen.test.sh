@@ -183,6 +183,8 @@ test_stale_pool_base_refreshes_before_branching() {
       "$branch_head" "$current" "$(cat "$POOL_DIR/advanced-main.txt")"
   fi
 
+  # Model the previous task's completed teardown before reusing its pool slot.
+  rm "$HOME_DIR/state/$id.meta"
   id='pool-current-base-repeat-r1'
   fm_test_spawn_brief "$HOME_DIR" "$id"
   out=$(run_spawn "$id" --mode no-mistakes --yolo off)
@@ -528,6 +530,8 @@ strand_submodule_pin_via_spawn() {  # <seed-id>
     || fail "the first spawn did not move the pooled base across the moved submodule pin"
   [ "$(git -C "$POOL_DIR/ui" rev-parse HEAD)" = "$SUBPIN1" ] \
     || fail "the first spawn did not strand the submodule on the pin the old base recorded"
+  # Retire the seed task fixture before a new task tests the stale copy.
+  rm "$HOME_DIR/state/$id.meta"
 }
 
 test_stale_submodule_pin_explains_itself() {
@@ -676,6 +680,45 @@ test_stale_pin_beside_other_dirt_reports_one_verdict() {
   pass "a stale pin beside other dirt yields the conservative refusal alone, with no stale-pin line"
 }
 
+test_claimed_pool_refuses_before_allocation() {
+  local rec id out status before
+  id='pool-held-slot-r14'
+  rec=$(make_case held-slot "$id")
+  read_case_record "$rec"
+  # The fake terminal offers this slot without checking the dead endpoint's
+  # durable task record, just as Treehouse's process-based availability did.
+  mkdir -p "$POOL_DIR/out"
+  printf 'held render\n' > "$POOL_DIR/out/Explainer.mp4"
+  ln -s "$POOL_DIR" "$CASE_DIR/pool-alias"
+  printf 'kind=ship\nbackend=tmux\nwindow=missing-window\nworktree=%s\n' "$CASE_DIR/pool-alias" \
+    > "$HOME_DIR/state/held.meta"
+  cat > "$FAKEBIN_DIR/treehouse" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = status ]; then
+  printf '[{"name":"3","path":"%s","status":"available"}]\n' "$FM_FAKE_PANE_PATH"
+fi
+SH
+  chmod +x "$FAKEBIN_DIR/treehouse"
+  out=$(FM_FAKE_PANE_PATH="$POOL_DIR" "$FAKEBIN_DIR/treehouse" status --json)
+  assert_contains "$out" '"status":"available"' "fixture must offer the claimed slot"
+  before=$(cat "$HOME_DIR/state/held.meta")
+  out=$(FM_FAKE_LAUNCH_LOG="$CASE_DIR/launch.log" run_spawn "$id" --scout)
+  status=$?
+  [ "$status" -ne 0 ] || fail "spawn reused a dead endpoint's recorded pool slot"
+  assert_contains "$out" 'held' "refusal must name the claiming task"
+  assert_contains "$out" 'fm-crew-state.sh held' "refusal must name reconciliation"
+  assert_contains "$out" 'teardown' "refusal must explain slot release"
+  [ ! -f "$HOME_DIR/state/$id.meta" ] || fail "spawn published a second owner"
+  [ "$before" = "$(cat "$HOME_DIR/state/held.meta")" ] || fail "spawn changed the owner record"
+  [ "$(git -C "$POOL_DIR" rev-parse HEAD)" = "$INITIAL_SHA" ] || fail "spawn reset the held copy"
+  if [ -f "$CASE_DIR/launch.log" ]; then
+    assert_not_contains "$(cat "$CASE_DIR/launch.log")" 'treehouse get' "guard ran after allocation"
+  fi
+  assert_grep 'held render' "$POOL_DIR/out/Explainer.mp4" "spawn destroyed the held artifact"
+  pass "a dead endpoint's durable claim refuses before pool allocation"
+}
+
+test_claimed_pool_refuses_before_allocation
 test_remote_seeded_home_spawns_from_treehouse_pool
 test_linked_spawning_home_rejects_primary_before_refresh
 test_stale_pool_base_refreshes_before_branching
