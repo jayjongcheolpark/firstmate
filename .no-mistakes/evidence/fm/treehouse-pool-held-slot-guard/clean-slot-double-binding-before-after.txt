@@ -1,0 +1,29 @@
+### base 269f8fe (before fix)
+$ cat state/held.meta
+kind=ship
+backend=tmux
+window=missing-window
+worktree=/private$TMPDIR/fm-demo-clean-slot.JPiv1L/demo/pool
+$ treehouse status --json
+[{"name":"3","path":"/private$TMPDIR/fm-demo-clean-slot.JPiv1L/demo/pool","status":"available"}]
+$ bin/fm-spawn.sh demo-fresh-spawn ... --scout
+spawned demo-fresh-spawn harness=codex kind=scout window=firstmate:fm-demo-fresh-spawn worktree=/private$TMPDIR/fm-demo-clean-slot.JPiv1L/demo/pool
+exit=0
+$ grep -l worktree=/private$TMPDIR/fm-demo-clean-slot.JPiv1L/demo/pool state/*.meta  (records bound to slot 3)
+demo-fresh-spawn.meta
+held.meta
+
+### target f3736d7 (after fix)
+$ cat state/held.meta
+kind=ship
+backend=tmux
+window=missing-window
+worktree=/private$TMPDIR/fm-demo-clean-slot.67V2uA/demo/pool
+$ treehouse status --json
+[{"name":"3","path":"/private$TMPDIR/fm-demo-clean-slot.67V2uA/demo/pool","status":"available"}]
+$ bin/fm-spawn.sh demo-fresh-spawn ... --scout
+error: Treehouse allocation refused: available slot /private$TMPDIR/fm-demo-clean-slot.67V2uA/demo/pool is still task held's recorded worktree, so treehouse get could hand it out again.
+Reconcile with bin/fm-crew-state.sh held, then bin/fm-teardown.sh held when its work is landed; only teardown releases the slot.
+exit=1
+$ grep -l worktree=/private$TMPDIR/fm-demo-clean-slot.67V2uA/demo/pool state/*.meta  (records bound to slot 3)
+held.meta

@@ -1,0 +1,33 @@
+== test_claimed_pool_refuses_before_allocation at base 269f8fe
+not ok - refusal must come from the preflight over Treehouse's offered slots (missing: 'available slot')
+--- output ---
+error: pooled worktree '/private/var/folders/cr/2_y999m90jl6vfjdqyblt5l80000gn/T/fm-spawn-pool-base-freshen.mytLtw/held-slot/pool' is not clean; refusing to discard uncommitted work while refreshing its base
+not ok - refusal must name the claiming task (missing: 'task held's recorded worktree')
+--- output ---
+error: pooled worktree '/private/var/folders/cr/2_y999m90jl6vfjdqyblt5l80000gn/T/fm-spawn-pool-base-freshen.mytLtw/held-slot/pool' is not clean; refusing to discard uncommitted work while refreshing its base
+not ok - refusal must name reconciliation (missing: 'fm-crew-state.sh held')
+--- output ---
+error: pooled worktree '/private/var/folders/cr/2_y999m90jl6vfjdqyblt5l80000gn/T/fm-spawn-pool-base-freshen.mytLtw/held-slot/pool' is not clean; refusing to discard uncommitted work while refreshing its base
+not ok - refusal must explain slot release (missing: 'teardown')
+--- output ---
+error: pooled worktree '/private/var/folders/cr/2_y999m90jl6vfjdqyblt5l80000gn/T/fm-spawn-pool-base-freshen.mytLtw/held-slot/pool' is not clean; refusing to discard uncommitted work while refreshing its base
+ok - a dead endpoint's durable claim refuses before pool allocation
+-- exit 0
+== test_claim_entered_after_preflight_refuses_before_publication at base 269f8fe
+not ok - late refusal must come from the recheck of the slot treehouse get entered (missing: 'entered slot')
+--- output ---
+error: pooled worktree '/private/var/folders/cr/2_y999m90jl6vfjdqyblt5l80000gn/T/fm-spawn-pool-base-freshen.mytLtw/late-claim/pool' is not clean; refusing to discard uncommitted work while refreshing its base
+not ok - late refusal must name the window whose shell sits in the slot (missing: 'inspect window')
+--- output ---
+error: pooled worktree '/private/var/folders/cr/2_y999m90jl6vfjdqyblt5l80000gn/T/fm-spawn-pool-base-freshen.mytLtw/late-claim/pool' is not clean; refusing to discard uncommitted work while refreshing its base
+not ok - late refusal must name the claiming task (missing: 'task held's recorded worktree')
+--- output ---
+error: pooled worktree '/private/var/folders/cr/2_y999m90jl6vfjdqyblt5l80000gn/T/fm-spawn-pool-base-freshen.mytLtw/late-claim/pool' is not clean; refusing to discard uncommitted work while refreshing its base
+not ok - late refusal must name reconciliation (missing: 'fm-crew-state.sh held')
+--- output ---
+error: pooled worktree '/private/var/folders/cr/2_y999m90jl6vfjdqyblt5l80000gn/T/fm-spawn-pool-base-freshen.mytLtw/late-claim/pool' is not clean; refusing to discard uncommitted work while refreshing its base
+ok - a slot claimed by a task whose endpoint died after preflight is refused before publication
+-- exit 0
+== test_live_claim_on_another_slot_does_not_block_allocation at base 269f8fe
+ok - a live task's claim on another slot leaves a free slot allocatable
+-- exit 0

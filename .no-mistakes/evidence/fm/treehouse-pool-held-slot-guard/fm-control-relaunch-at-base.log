@@ -1,0 +1,13 @@
+not ok - a same-harness relaunch should succeed
+warning: /private/var/folders/cr/2_y999m90jl6vfjdqyblt5l80000gn/T/fm-control-relaunch.yjyQsV/same-2190/home/data/rl1/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode no-mistakes - confirm its definition of done matches
+No version is set for command node
+Consider adding one of the following versions in your config file at /tmp/fm-base2-B6hF/.tool-versions
+nodejs lts
+nodejs 24.15.0
+nodejs 24.12.0
+nodejs 22.22.0
+nodejs 17.9.1
+error: refusing to pre-register Claude trust: could not record trust for '/private/var/folders/cr/2_y999m90jl6vfjdqyblt5l80000gn/T/fm-control-relaunch.yjyQsV/same-2190/wt' in '/private/var/folders/cr/2_y999m90jl6vfjdqyblt5l80000gn/T/fm-control-relaunch.yjyQsV/same-2190/user-home/.claude.json'
+error: could not pre-register Claude workspace trust for /private/var/folders/cr/2_y999m90jl6vfjdqyblt5l80000gn/T/fm-control-relaunch.yjyQsV/same-2190/wt; refusing to launch a claude worker that would wedge on the trust dialog; inspect window fmses:fm-rl1
+error: the replacement agent for rl1 could not be launched on claude
+error: rl1's agent was stopped but the replacement did not launch; no agent is running, and its work plus the recorded progress note are preserved at /private/var/folders/cr/2_y999m90jl6vfjdqyblt5l80000gn/T/fm-control-relaunch.yjyQsV/same-2190/wt: expected exit 0, got 1
