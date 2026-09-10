@@ -91,8 +91,11 @@
 # boundary. Fresh Treehouse spawns for that project in
 # every local Firstmate home hold the same lock from before slot allocation
 # through metadata publication, closing the publication
-# gap; forced secondmate teardown takes it and runs the same checks for every
-# descendant Treehouse slot before touching any child.
+# gap, and run this same record matcher (fm_meta_find_directory_claim in
+# bin/fm-backend.sh) against the slots they could receive; bin/fm-spawn.sh's
+# header owns that allocation rule. Forced secondmate teardown takes the lock
+# and runs the same checks for every descendant Treehouse slot before touching
+# any child.
 # This refusal is not relaxed by --force: --force authorizes discarding THIS
 # task's unlanded work, never another task's live work. Reconcile whichever
 # record is wrong and re-run. Orca is not a pool slot and proves its path through
