@@ -2209,22 +2209,6 @@ if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ];
     exit 1
   fi
   SPAWN_TREEHOUSE_PROJECT_LOCK_HELD=1
-  # Inspect before get: allocation itself can reset the selected copy.
-  if ! SPAWN_POOL_STATUS=$(cd "$PROJ_ABS" && treehouse status --json 2>/dev/null); then
-    echo "error: treehouse status failed for $PROJ_ABS; refusing Treehouse allocation" >&2
-    exit 1
-  fi
-  if ! SPAWN_POOL_AVAILABLE=$(printf '%s' "$SPAWN_POOL_STATUS" \
-      | jq -r '.[] | select(.status == "available") | .path'); then
-    echo "error: treehouse status for $PROJ_ABS was not pool JSON; refusing Treehouse allocation" >&2
-    exit 1
-  fi
-  while IFS= read -r spawn_available_slot; do
-    [ -n "$spawn_available_slot" ] || continue
-    refuse_claimed_spawn_slot "$spawn_available_slot" "available slot" "so treehouse get could hand it out again"
-  done <<EOF
-$SPAWN_POOL_AVAILABLE
-EOF
 fi
 [ -f "$BRIEF" ] || { echo "error: task $ID has no brief at inaccessible data path $BRIEF" >&2; exit 1; }
 if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
@@ -2628,6 +2612,26 @@ fi
 if [ -e "$STATE/$ID.backlog-close" ] || [ -L "$STATE/$ID.backlog-close" ]; then
   echo "error: task $ID has a pending authoritative backlog close at $STATE/$ID.backlog-close; finish or repair that close before dispatching a new worker" >&2
   exit 1
+fi
+
+if [ "$SPAWN_TREEHOUSE_PROJECT_LOCK_HELD" = 1 ]; then
+  # Under the project lock, after every cheap refusal and before any endpoint
+  # exists: inspect before get, since allocation itself can reset the selected copy.
+  if ! SPAWN_POOL_STATUS=$(cd "$PROJ_ABS" && treehouse status --json 2>/dev/null); then
+    echo "error: treehouse status failed for $PROJ_ABS; refusing Treehouse allocation" >&2
+    exit 1
+  fi
+  if ! SPAWN_POOL_AVAILABLE=$(printf '%s' "$SPAWN_POOL_STATUS" \
+      | jq -r '.[] | select(.status == "available") | .path'); then
+    echo "error: treehouse status for $PROJ_ABS was not pool JSON; refusing Treehouse allocation" >&2
+    exit 1
+  fi
+  while IFS= read -r spawn_available_slot; do
+    [ -n "$spawn_available_slot" ] || continue
+    refuse_claimed_spawn_slot "$spawn_available_slot" "available slot" "so treehouse get could hand it out again"
+  done <<EOF
+$SPAWN_POOL_AVAILABLE
+EOF
 fi
 
 W="fm-$ID"

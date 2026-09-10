@@ -350,21 +350,21 @@ fm_meta_get() {  # <meta-file> <key>
 # Find the first other task record claiming an existing directory. Callers
 # choose the state roots and fields; outputs retain the matching record identity.
 fm_meta_find_directory_claim() {  # <excluded-meta> <directory> <fields> <state>...
-  local excluded=$1 directory=$2 fields=$3 state other field path canonical
+  local excluded=$1 directory=$2 fields=$3 state claimant field path canonical
   shift 3
   FM_META_CLAIM_ID='' FM_META_CLAIM_FIELD=''
   directory=$(cd "$directory" 2>/dev/null && pwd -P) || return 1
   for state in "$@"; do
-    for other in "$state"/*.meta; do
-      [ -f "$other" ] && [ ! -L "$other" ] || continue
-      [ "$other" != "$excluded" ] || continue
+    for claimant in "$state"/*.meta; do
+      [ -f "$claimant" ] && [ ! -L "$claimant" ] || continue
+      [ "$claimant" != "$excluded" ] || continue
       for field in $fields; do
-        path=$(fm_meta_get "$other" "$field")
+        path=$(fm_meta_get "$claimant" "$field")
         [ -n "$path" ] || continue
         canonical=$(cd "$path" 2>/dev/null && pwd -P) || continue
         [ "$canonical" = "$directory" ] || continue
         # shellcheck disable=SC2034 # Output globals are consumed by sourcing callers.
-        FM_META_CLAIM_ID=$(basename "$other" .meta)
+        FM_META_CLAIM_ID=$(basename "$claimant" .meta)
         # shellcheck disable=SC2034 # Output globals are consumed by sourcing callers.
         FM_META_CLAIM_FIELD=$field
         return 0
